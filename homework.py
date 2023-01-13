@@ -19,8 +19,8 @@ RETRY_PERIOD = 600
 ENDPOINT = "https://practicum.yandex.ru/api/user_api/homework_statuses/"
 HEADERS = {"Authorization": f"OAuth {PRACTICUM_TOKEN}"}
 
-homeworks_dict = {}
-error_dict = {}
+statusdata = {}
+error_mess = {}
 
 
 HOMEWORK_VERDICTS = {
@@ -40,20 +40,12 @@ logger.setLevel(logging.DEBUG)
 
 def check_tokens():
     """Проверка переменных окружения."""
-    no_token_message = (
-        "Бот остановлен Отсутствует обязательная переменная окружения:"
-    )
-    token_bool = True
-    if PRACTICUM_TOKEN is None:
-        token_bool = False
-        logger.critical(f"{no_token_message} PRACTICUM_TOKEN")
-    if TELEGRAM_TOKEN is None:
-        token_bool = False
-        logger.critical(f"{no_token_message} TELEGRAM_TOKEN")
-    if TELEGRAM_CHAT_ID is None:
-        token_bool = False
-        logger.critical(f"{no_token_message} TELEGRAM_CHAT_ID")
-    return token_bool
+    if (PRACTICUM_TOKEN is None or TELEGRAM_TOKEN is None
+       or TELEGRAM_CHAT_ID is None):
+        logger.critical('Отсутствуют переменные окружения')
+        return False
+    else:
+        return True
 
 
 def send_message(bot, message):
@@ -81,10 +73,7 @@ def get_api_answer(timestamp):
         logger.debug("Получен запрос от API и обработан в json")
         return homework_statuses_json
     except Exception:
-        if homework_statuses.status_code != 200:
-            raise GetAPIException("Эндпоинт API недоступен")
-        else:
-            raise GetAPIException("Сбой при запросе к эндпоинту")
+        raise GetAPIException("Сбой при запросе к эндпоинту")
 
 
 def check_response(response):
@@ -94,20 +83,19 @@ def check_response(response):
         last_current_date = response["current_date"]
     except KeyError:
         raise MissingKeyException("Отсутствуют ожидаемые ключи в ответе API")
+
     if not isinstance(response, dict):
         raise TypeError("Некорректный тип у response.")
-
     if not isinstance(homeworks, list):
         raise TypeError("Некорректный тип у homeworks.")
     if homeworks != []:
-
-        homeworks_dict["last_homework"] = homeworks[0]
-        homeworks_dict["last_timestamp"] = last_current_date
+        statusdata["last_homework"] = homeworks[0]
+        statusdata["last_timestamp"] = last_current_date
         logger.debug("Обновление информации в словаре о последней проверке")
-        logger.debug("Домашня работа проверена за время этой итеррации")
+        logger.info("Домашня работа проверена за время этой итеррации")
         return True
     else:
-        logger.debug("Домашня работа не проверена за время этой итеррации")
+        logger.info("Домашня работа не проверена за время этой итеррации")
         return False
 
 
@@ -134,23 +122,23 @@ def main():
     send_message(bot, "Работа начата")
     while True:
         try:
-            if homeworks_dict.get("last_timestamp"):
-                timestamp = homeworks_dict.get("last_timestamp")
+            if statusdata.get("last_timestamp"):
+                timestamp = statusdata.get("last_timestamp")
             response = get_api_answer(timestamp)
             homework_status_changed = check_response(response)
             if homework_status_changed:
-                last_homework = homeworks_dict.get("last_homework")
+                last_homework = statusdata.get("last_homework")
                 message = parse_status(last_homework)
                 send_message(bot, message)
             logger.debug("-----------------")
-            time.sleep(RETRY_PERIOD)
         except Exception as error:
             logger.error(f"Сбой в работе программы: {error}")
             message = f"Сбой в работе программы: {error}"
-            if message != error_dict.get("last_error_message"):
-                error_dict["last_error_message"] = message
+            if message != error_mess.get("last_error_message"):
+                error_mess["last_error_message"] = message
                 send_message(bot, message)
             logger.debug("-----------------")
+        finally:
             time.sleep(RETRY_PERIOD)
 
 
