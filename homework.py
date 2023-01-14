@@ -40,12 +40,7 @@ logger.setLevel(logging.DEBUG)
 
 def check_tokens():
     """Проверка переменных окружения."""
-    if (PRACTICUM_TOKEN is None or TELEGRAM_TOKEN is None
-       or TELEGRAM_CHAT_ID is None):
-        logger.critical('Отсутствуют переменные окружения')
-        return False
-    else:
-        return True
+    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot, message):
@@ -60,18 +55,16 @@ def send_message(bot, message):
 def get_api_answer(timestamp):
     """Запрос информации от API Я.Практикум."""
     payload = {"from_date": timestamp}
-    homework_statuses_json = dict()
     try:
         homework_statuses = requests.get(
             ENDPOINT,
             headers=HEADERS,
             params=payload
         )
-        homework_statuses_json = homework_statuses.json()
         if homework_statuses.status_code != 200:
             raise GetAPIException
         logger.debug("Получен запрос от API и обработан в json")
-        return homework_statuses_json
+        return homework_statuses.json()
     except Exception:
         raise GetAPIException("Сбой при запросе к эндпоинту")
 
@@ -116,6 +109,7 @@ def main():
     """Основная логика работы бота."""
     logger.debug("-----------------")
     if not check_tokens():
+        logger.critical('Отсутствуют токены')
         exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
