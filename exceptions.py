@@ -7,4 +7,4 @@ class NoDocumentException(Exception):
 
 
 class MissingKeyException(Exception):
-    """При отсутствии клюей в ответе API."""
+    """При отсутствии ключей в ответе API."""
